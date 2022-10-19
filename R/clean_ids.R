@@ -25,6 +25,8 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
                       save = TRUE, 
                       save_path = 'ids.csv') {
 
+  drc <- epiplaces::load_map('drc')
+
   # LOAD -------------------------------------------------------------------------------------------
   fn <- here::here(data_root, data_file)
   ext <- tools::file_ext(data_file)
@@ -136,7 +138,16 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
                 'omendjadi' = 'omondjadi',
                 'dibele' = 'bena_dibele',
                 'kiambi' = 'kiyambi',
-                'mbulula' = 'mbulala')
+                'mbulula' = 'mbulala',
+                'kakene' = 'kakenge',
+                'kakengge' = 'kakengge',
+                'kamonia' = 'kamonya',
+                'kamuesha' = 'kamwesha',
+                'kamweshe' = 'kamwesha',
+                'kekenge' = 'kakenge',
+                'kitangua' = 'kitangwa',
+                'mueka' = 'mweka'
+  )
 
   df <- df %>%
           tidytable::mutate.(zs = dplyr::recode(zs, !!!fixes),
@@ -145,80 +156,89 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
 
   # MAKE ZONES AND DATES WITH NO DATA EXPLICIT -----
   # build and save df of most recent population data available
-  pops <- df %>%
-            tidytable::summarize.(pop = tidytable::last.(stats::na.omit(pop)),
-                                  .by = c(prov_zs, prov, zs))
+  #pops <- df %>%
+            #tidytable::summarize.(pop = tidytable::last.(stats::na.omit(pop)),
+                                  #.by = c(prov_zs, prov, zs))
 
-  pops <- readRDS(here::here('data', 'population_data.RDS')) %>%
-           tidytable::filter.(prov_zs %notin% pops$prov_zs) %>%
-           tidytable::bind_rows.(pops) %>%
-           tidytable::mutate.(numsem = 1)
+  pops <- readRDS(here::here('data', 'pops.RDS'))# %>%
+           #tidytable::filter.(zs != 'shabunda_centre') %>%
+           #tidytable::filter.(prov_zs %notin% pops$prov_zs) %>%
+           #tidytable::bind_rows.(pops) %>%
+           #tidytable::mutate.(numsem = 1)
 
-  #saveRDS(pops, here::here('data', 'population_data.RDS'))
+  #saveRDS(pops, here::here('data', 'pops.RDS'))
+
 
   # expand dates and add date for start of week
   max_week <- ifelse(is.null(max_week), tinker::.max(df$numsem), max_week)
-  missing_zones <- pops %>%
-                     tidytable::filter.(prov_zs %notin% unique(df$prov_zs))
-
-  df <- df %>%
-          tidytable::bind_rows.(missing_zones) %>%
-          tidytable::complete.(numsem = seq(1, max_week),
-                               .by = c(prov, zs, prov_zs))
-
-  # if year is already in df, keep it
-  # this requires work on max week stuff
-  #if ('annee' %in% names(df)) {
-    #df <- df %>%
-            #rename(annee = 'year')
-  #} else {
-    #df <- df %>%
-            #rename(year = year)
-  #}
-
-  df <- df %>%
-          tidytable::mutate.(year = year,
-                             debutsem = tinker::iso_to_date(week = numsem,
-                                                            year = year),
-                             pop = tidytable::last.(stats::na.omit(pop)),
-                             .by = c(prov, zs, prov_zs))
+  writeLines(paste0('max week is : ', max_week))
 
 
-  # REMOVE DUPLICATES -----
-  # when rows have duplicated id columns (province, zone, date) but conflicting case / death data,
-  # choose the row with the highest number of total cases, then total deaths, then cases over 5, etc
-  # TODO: save duplicate entries to a log file so that they can be reported to the national
-  # surveillance system for correction -- consider splitting these into full duplicates and rows 
-  # that duplicate the id columns (province, health zone, date) but have different case / death data
-  df <- df %>%
-          tidytable::arrange.(totalcas, totaldeces, c5ansp, d5ansp, c1259mois, d1259mois, c011mois,
-                              d011mois) %>%
-          tidytable::distinct.(prov, zs, debutsem, .keep_all = TRUE) %>%
-          tidytable::arrange.(prov, zs, debutsem)
 
-  # VALIDATE -----
-	# realistic dates
-	# no missing zones / provinces
-	# all zones present with correct number of observations
-  # pops should be unique (ex. more than a handful of zones w/ same pop is sus)
-  # no duplicate entries (wrt prov zone date)
-  # no missing data for year, week, date
-  
+  df_all <- data.frame()
 
+  for (mal in unique(df$maladie)) {
+    writeLines(paste0('processing ', mal, '...'))
 
-#assert("T is bad for TRUE, and so is F for FALSE", {
-    #T = FALSE
-    #F = TRUE
-    #(T != TRUE)  # note the parentheses
-    #(F != FALSE)
-#})
+    tmp <- df %>%
+            filter(maladie == mal)
 
-  # SAVE -------------------------------------------------------------------------------------------
-  if (save) {
-    rio::export(df, save_path)
+    missing_zones <- pops %>%
+                       tidytable::filter.(prov_zs %notin% unique(tmp$prov_zs)) %>%
+                       tidytable::mutate.(maladie = mal)
+
+    tmp <- tmp %>%
+            tidytable::bind_rows.(missing_zones) %>%
+            tidytable::complete.(numsem = seq(1, max_week),
+                                 .by = c(prov, zs, prov_zs)) %>%
+            mutate(maladie = mal)
+
+    tmp <- tmp %>%
+            tidytable::mutate.(year = year,
+                               debutsem = tinker::iso_to_date(week = numsem,
+                                                              year = year))
+                               #pop = tidytable::last.(stats::na.omit(pop)),
+                               #.by = c(prov, zs, prov_zs))
+
+    # REMOVE DUPLICATES -----
+    # when rows have duplicated id columns (province, zone, date) but conflicting case / death data,
+    # choose the row with the highest number of total cases, then total deaths, then cases over 5, etc
+    # TODO: save duplicate entries to a log file so that they can be reported to the national
+    # surveillance system for correction -- consider splitting these into full duplicates and rows 
+    # that duplicate the id columns (province, health zone, date) but have different case / death data
+    tmp <- tmp %>%
+            tidytable::arrange.(totalcas, totaldeces, c5ansp, d5ansp, c1259mois, d1259mois, c011mois,
+                                d011mois) %>%
+            tidytable::distinct.(prov, zs, debutsem, .keep_all = TRUE) %>%
+            tidytable::arrange.(prov, zs, debutsem) %>%
+            select(prov, zs, prov_zs, maladie, numsem, year, debutsem, c011mois, c1259mois, c5ansp, totalcas,
+                   d011mois, d1259mois, d5ansp, totaldeces) %>%
+            rename(reg = prov,
+                   zone = zs,
+                   reg_zone = prov_zs,
+                   week = numsem,
+                   date = debutsem,
+                   cases_0_11 = c011mois,
+                   cases_12_59 = c1259mois,
+                   cases_5plus = c5ansp,
+                   cases = totalcas,
+                   deaths_0_11 = d011mois,
+                   deaths_12_59 = d1259mois,
+                   deaths_5plus = d5ansp,
+                   deaths = totaldeces)
+
+    # SAVE -------------------------------------------------------------------------------------------
+    if (save) {
+      rio::export(tmp, paste0('clean_', mal, '.csv'))
+    }
+
+    df_all <- bind_rows(df_all, tmp)
   }
 
+  if (save) {
+    rio::export(df_all, paste0('clean_ids.csv'))
+  }
   
   # RETURN -----------------------------------------------------------------------------------------
-  return(df)
+  return(df_all)
 }
