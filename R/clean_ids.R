@@ -7,7 +7,7 @@
 #' @param data_root `str` Directory where data is stored. Default is 'data'.
 #' @param year `int` Year to associate with the data in `data_file`. Default is the current year.
 #' @param save `bool` If `TRUE`, the output data will be saved to a file. Default is `TRUE`.
-#' @param save_path `str` Path to be used when saving the output data (if `save` is `TRUE`). Default
+#' @param save_root `str` Path to be used when saving the output data (if `save` is `TRUE`). Default
 #'   is 'current_clean.csv'.
 #'
 #' @return df
@@ -22,12 +22,9 @@
 #' @importFrom tidyr complete
 clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), maladie = NULL,
                       year = as.numeric(format(Sys.Date(), '%Y')), max_week = NULL,
-                      save = TRUE, 
-                      save_path = 'ids.csv') {
+                      save = TRUE, save_root = here::here('out')) {
 
-  drc <- epiplaces::load_map('drc')
-
-  # LOAD -------------------------------------------------------------------------------------------
+# LOAD ------------------------------------------------------------------------------------------
   fn <- here::here(data_root, data_file)
   ext <- tools::file_ext(data_file)
 
@@ -46,23 +43,10 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
 
   # WRANGLE ----------------------------------------------------------------------------------------
 
-  if (!is.null(maladie)) {
-    maladie <- toupper(maladie)
-
-    if (maladie %in% unique(df$MALADIE)) {
-      df <- df %>%
-              tidytable::filter.(MALADIE == 'CHOLERA')
-    } else {
-      warning(paste0('maladie \'', maladie, '\' not found. returning data for all causes. for',
-                     'reference, available options include : ',
-                     paste(unique(df$MALADIE), sep = ', ')))
-    }
-  }
-
   # SELECT (AND LOWERCASE ASCII ONLY PLEASE) -----
   df <- df %>%
           linelist::clean_data() %>%
-          tidytable::mutate.(tidytable::across.(dplyr::contains(c('mois', 'ans')), as.numeric))
+          tidytable::mutate.(tidytable::across.(tidytable::contains(c('mois', 'ans')), as.numeric))
         
 
   # NB: starting in 2021 data splits 5-15 years old and 15+ into seperate categories but our
@@ -82,8 +66,8 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
   if (year > 2020) {
     df <- df %>%
             tidytable::mutate_rowwise.(c5ansp = tinker::.sum(c515ans, cp15ans),
-                                       d5ansp = tinker::.sum(d515ans, cp15ans)) %>% 
-            tidytable::select.(!ends_with('ans'))
+                                       d5ansp = tinker::.sum(d515ans, dp15ans)) %>% 
+            tidytable::select.(!tidytable::ends_with('ans'))
   }
 
   df <- df %>%
@@ -95,12 +79,12 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
   # remove observations with dates in the future
   # TODO: log file with any entries that were removed, this would be great but is low priority as
   # we haven't seen any futuredate issues 
-  df <- df %>%
-          tidytable::filter.(numsem <= 53)
-
   if (year == lubridate::year(Sys.Date())) {
     df <- df %>%
             tidytable::filter.(numsem <= lubridate::week(Sys.Date()))
+  } else {
+    df <- df %>%
+            tidytable::filter.(numsem <= 53)
   }
 
 
@@ -155,25 +139,9 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
 
 
   # MAKE ZONES AND DATES WITH NO DATA EXPLICIT -----
-  # build and save df of most recent population data available
-  #pops <- df %>%
-            #tidytable::summarize.(pop = tidytable::last.(stats::na.omit(pop)),
-                                  #.by = c(prov_zs, prov, zs))
-
-  pops <- readRDS(here::here('data', 'pops.RDS'))# %>%
-           #tidytable::filter.(zs != 'shabunda_centre') %>%
-           #tidytable::filter.(prov_zs %notin% pops$prov_zs) %>%
-           #tidytable::bind_rows.(pops) %>%
-           #tidytable::mutate.(numsem = 1)
-
-  #saveRDS(pops, here::here('data', 'pops.RDS'))
-
-
   # expand dates and add date for start of week
   max_week <- ifelse(is.null(max_week), tinker::.max(df$numsem), max_week)
   writeLines(paste0('max week is : ', max_week))
-
-
 
   df_all <- data.frame()
 
@@ -181,24 +149,23 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
     writeLines(paste0('processing ', mal, '...'))
 
     tmp <- df %>%
-            filter(maladie == mal)
+            tidytable::filter.(maladie == mal)
 
-    missing_zones <- pops %>%
+    missing_zones <- geo_dictionary %>%
                        tidytable::filter.(prov_zs %notin% unique(tmp$prov_zs)) %>%
-                       tidytable::mutate.(maladie = mal)
+                       tidytable::mutate.(maladie = mal,
+                                          numsem = 1)
 
     tmp <- tmp %>%
             tidytable::bind_rows.(missing_zones) %>%
             tidytable::complete.(numsem = seq(1, max_week),
                                  .by = c(prov, zs, prov_zs)) %>%
-            mutate(maladie = mal)
+            tidytable::mutate.(maladie = mal)
 
     tmp <- tmp %>%
             tidytable::mutate.(year = year,
                                debutsem = tinker::iso_to_date(week = numsem,
                                                               year = year))
-                               #pop = tidytable::last.(stats::na.omit(pop)),
-                               #.by = c(prov, zs, prov_zs))
 
     # REMOVE DUPLICATES -----
     # when rows have duplicated id columns (province, zone, date) but conflicting case / death data,
@@ -211,21 +178,21 @@ clean_ids <- function(data_file = 'ids.xlsx', data_root = here::here('data'), ma
                                 d011mois) %>%
             tidytable::distinct.(prov, zs, debutsem, .keep_all = TRUE) %>%
             tidytable::arrange.(prov, zs, debutsem) %>%
-            select(prov, zs, prov_zs, maladie, numsem, year, debutsem, c011mois, c1259mois, c5ansp, totalcas,
-                   d011mois, d1259mois, d5ansp, totaldeces) %>%
-            rename(reg = prov,
-                   zone = zs,
-                   reg_zone = prov_zs,
-                   week = numsem,
-                   date = debutsem,
-                   cases_0_11 = c011mois,
-                   cases_12_59 = c1259mois,
-                   cases_5plus = c5ansp,
-                   cases = totalcas,
-                   deaths_0_11 = d011mois,
-                   deaths_12_59 = d1259mois,
-                   deaths_5plus = d5ansp,
-                   deaths = totaldeces)
+            tidytable::select.(prov, zs, prov_zs, maladie, numsem, year, debutsem, c011mois, 
+                   c1259mois, c5ansp, totalcas, d011mois, d1259mois, d5ansp, totaldeces) %>%
+            tidytable::rename.(reg = prov,
+                               zone = zs,
+                               reg_zone = prov_zs,
+                               week = numsem,
+                               date = debutsem,
+                               cases_0_11 = c011mois,
+                               cases_12_59 = c1259mois,
+                               cases_5plus = c5ansp,
+                               cases = totalcas,
+                               deaths_0_11 = d011mois,
+                               deaths_12_59 = d1259mois,
+                               deaths_5plus = d5ansp,
+                               deaths = totaldeces)
 
     # SAVE -------------------------------------------------------------------------------------------
     if (save) {
