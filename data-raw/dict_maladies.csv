@@ -1,0 +1,28 @@
+maladie,original
+chikungunya,CHIKUNGUNYA
+cholera,CHOLERA
+covid,COVID-19
+diarrhea_bloody,DIARR SANGLANTE
+diarrhea_dehydrated,DIARRHEE DHY M5
+diptheria,DIPHTERIE
+fha,FHA
+flu,GRIPPE
+guinea_worm,DRACUNCULOSE
+ira,IRA
+malaria_confirmed,PALUDISME CONF
+malaria_suspected,PALUDISME SUSP
+mapi_light,MAPI LEGERES
+mapi_severe,MAPI GRAVES
+maternal_deaths,DECES MATERNELS
+measles,ROUGEOLE
+menengitis,MENINGITE
+monkeypox,MONKEYPOX
+pertussis,COQUELUCHE
+pfa,PFA
+plague,PESTE
+pneumonia,PNEUMONIE
+rabies,RAGE
+tetanus_maternal,TETANOS MATERNE
+tetanus_neonatal,TNN
+typhoid,FIEVRE TYPHOIDE
+yellow_fever,FIEVRE JAUNE
