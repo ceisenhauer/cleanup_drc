@@ -1,16 +1,24 @@
-Package: drc
-Title: What the Package Does (One Line, Title Case)
+Package: clean_drc
+Title: cleaning package for DRC data
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Catherine",
+           family = "Eisenhauer",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+           email = "caeisenhauer@gmail.com")
+Description: this package takes raw lab and surveillance data from the drc and produces (relatively) clean outputs. it will also, one day, create a log of how many observations were changed during the cleaning process. 
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
+Depends: 
+    R (>= 2.10),
+    tidytable,
+    dplyr,
+    tinker,
+    here,
+    Hmisc,
+    linelist,
+    rio,
+    tidyr
