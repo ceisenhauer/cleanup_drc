@@ -1,5 +1,4 @@
-Cleanup : DRC <img src='www/logo.svg' align='right' alt='' width='200' />
-====================================================================================================
+# Cleanup : DRC <img src='www/logo.svg' align='right' alt='' width='200' />
 
 <!-- badges: start -->
 [![Lifecycle:
@@ -11,6 +10,7 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 Context
 ----------------------------------------------------------------------------------------------------
 This package contains clean up code for a variety of datasets used in the DRC. These include the following data sources :
+
 - [ ] IDS (national surveillance of a large number of maladies) 
 - [ ] INRB
     - [ ] Measles

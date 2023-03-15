@@ -1,4 +1,4 @@
-Package: clean_drc
+Package: cleanup.drc
 Title: cleaning package for DRC data
 Version: 0.0.0.9000
 Authors@R: 
@@ -11,7 +11,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.2
 Depends: 
     R (>= 2.10),
     tidytable,
@@ -20,5 +20,7 @@ Depends:
     here,
     Hmisc,
     linelist,
+    rlang,
     rio,
+    lubridate,
     tidyr
