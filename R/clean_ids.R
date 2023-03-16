@@ -35,9 +35,9 @@ clean_ids <- function(data_file = NULL, data_root = here::here('data', 'ids'),
                       output_root = here::here('out')) {
 
   # ARGUMENT VALIDATION ----------------------------------------------------------------------------
-  if (maladie %notin% dict_maladie$maladie) {
+  if (maladie %notin% names(dict_maladie)) {
     stop(paste0('Apologies, there is no data for ', maladie, 'in the IDS data. Please select one',
-                ' of the following: \n', paste(dict_maladie$maladie, sep = '\n')))
+                ' of the following: \n', paste(dict_maladie[[maladie]], sep = '\n')))
   }
 
   # TODO: consider if it's better to accept a vector of maladies and then return either a single df
