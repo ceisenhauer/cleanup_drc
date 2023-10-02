@@ -69,11 +69,16 @@ clean_ids <- function(data_file = NULL, data_root = here::here('data', 'ids'),
 
   # WRANGLE ----------------------------------------------------------------------------------------
 
+  print(maladie_ids)
+  print(names(df))
+
+  print(head(df))
+
   # SELECT (AND LOWERCASE ASCII ONLY PLEASE) -----
   df <- df %>%
-          filter.(.data$MALADIE == maladie_ids) %>%
+          filter(.data$MALADIE == maladie_ids) %>%
           linelist::clean_data() %>%
-          mutate.(across.(contains(c('mois', 'ans')), as.numeric))
+          mutate(across.(contains(c('mois', 'ans')), as.numeric))
         
 
   # NB: starting in 2021 data splits 5-15 years old and 15+ into seperate categories but our
@@ -176,13 +181,17 @@ clean_ids <- function(data_file = NULL, data_root = here::here('data', 'ids'),
   # expand dates and add date for start of week
   max_week <- ifelse(is.null(max_week), max(df$numsem, na.rm = TRUE), max_week)
 
-  ref_zones <- rio::import(here::here('data', 'reference', 'dict_geo.csv'))
+  ref_zones <- dict_geo %>%
+                     rename.(prov = .data$reg,
+                             zs = .data$zone,
+                             prov_zs = .data$reg_zone)
+
   missing_zones <- ref_zones %>%
-                     mutate.(numsem = 1) %>%
-                     filter.(.data$prov_zs %notin% unique(df$prov_zs))
+    mutate.(numsem = 1) %>%
+    filter.(.data$prov_zs %notin% unique(df$prov_zs))
 
   extra_zones <- df %>%
-    filter.(.data$prov_zs %notin% unique(ref_zones$prov_zs)) %>%
+    filter.(.data$prov_zs %notin% unique(dict_geo$prov_zs)) %>%
     select.(.data$prov, .data$zs) %>%
     distinct.()
 
